@@ -2,7 +2,8 @@
 ## Author: Casey Graves                                                                                       ##
 ## Translated by: Megan Knight                                                                                ##
 ## Date: 9/12/2014                                                                                            ##
-## Purpose: Estimating US Foundation DAH using new grant-level data from the Foundation Center.               ## 
+## Purpose: Estimating US Foundation DAH using new grant-level data from the Foundation Center between 1992   ## 
+## and 2002.                                                                                                  ##
 ## Please Note that this script feeds into:                                                                   ##
 ## 'J:\Project\IRH\DAH\RESEARCH\CHANNELS\6_FOUNDATIONS\2_US_FOUNDATIONS\CODE\1_US_FOUND_PD_CREATE_FGH2014.do' ##
 ################################################################################################################
@@ -32,13 +33,14 @@ fin <- file.path(root, 'CHANNELS/6_FOUNDATIONS/2_US_FOUNDATIONS/DATA/FIN')
 codes <- file.path(root, 'INTEGRATED DATABASES/COUNTRY FEATURES')
 
 ## paramaters for FGH report year
-report_yr <- 2020
-abrv_yr <- 20 
+report_yr <- 2020 ## FGH report year
+abrv_yr <- 20 ## abbreviated FGH report year 
 
 ######################################################################################
-## STEP 1: Import grant-level data from the Foundation Center (new as of FGH 2014)  ##
+## STEP 1: Import grant-level data from the Foundation Center (new classification   ##
+## as of FGH 2014)                                                                  ##
 ######################################################################################
-## pull all relevant files
+## pull all relevant files with data between 1992 - 2002
 grant_files <- list.files(path = raw, pattern = 'Batch ')
 
 ## read and rbind files together 
@@ -50,23 +52,23 @@ grants <- do.call(rbind, grant_tables)
 health_grants <- setDT(grants)[primary_code == 'E']
 
 ######################################################################################
-## STEP 2: Splitting disbursements among the list recipient countries.              ##
+## STEP 2: Splitting disbursements among the list recipient countries               ##
 ######################################################################################
 ## Often the country_tran variable will list two or more countries, so we will      ##
-## want to split the grant amount evenly between them).                             ##
+## want to split the grant amount evenly between them)                              ##
 ######################################################################################
-## TODO: @Ian -- UPDATE WITH RECENT CHANGES & FUNCTION FOR GRANT SPLITTING
+## TODO: @Ian -- ADD FUNCTION FOR GRANT SPLITTING
 ## clean recipient country list
-health_grants[, country_tran := ifelse(country_tran == 'Global programs; Developing countries', 'Global programs', country_tran)]
-health_grants[, country_tran := ifelse(country_tran %like% 'Global programs; Developing countries', gsub('; Developing countries','',country_tran), country_tran)]
+health_grants[, country_tran := ifelse((is.na(country_tran)&length(location)!=2), location, country_tran)]
 
 ## create separate column for each recipient (some grants have up to 10 recipients listed)
-cols <- max(lengths(gregexpr(';', health_grants$country_tran)) + 1)
-health_grants_wide <- separate(health_grants, col = 'country_tran', sep = ';', into = paste0('country_tran_',seq_along(1:cols)), remove = F)
+health_grants[, n_recip := count.fields(textConnection(country_tran), sep = "; ")]
+country_cols <- rep(paste0('country_tran_', 1:max(health_grants$n_recip, na.rm = T)))
+health_grants_wide <- health_grants[, c(country_cols) := tstrsplit(country_tran, ";", fixed = TRUE)]
 
 ## transform data long
 health_grants_wide$recipient <- health_grants_wide$country_tran
-health_grants_long <- melt(health_grants_wide, measure.vars = paste0('country_tran_',seq_along(1:cols)), value.name = 'recipient_country')
+health_grants_long <- melt(health_grants_wide, measure.vars = country_cols, value.name = 'recipient_country')
 health_grants_long <- health_grants_long[!(is.na(recipient_country) & !is.na(recipient))]
 
 ## cumulative and total counts by grant
@@ -129,7 +131,7 @@ health_grants_label2 <- merge(health_grants_label2, income_groups, by = c('ISO3_
 
 ######################################################################################
 ## STEP 3: Tagging transfers from foundations to channels we already track          ##
-## (UN Agencies and NGOs).                                                          ##
+## (UN Agencies and NGOs)                                                           ##
 ######################################################################################
 ## drop BMFG because they are tracked separately
 health_grants_sub <- health_grants_label2[gm_key != 'GATE023']
@@ -205,11 +207,9 @@ foundations_name_flag <- foundations_track_flag[, c('ELIM_CH', 'RECIPIENT_AGENCY
 ## drop high income countries
 foundations_prep <- foundations_name_flag[is.na(INC_GROUP) | INC_GROUP != 'H']
 
-######################################################################################################
-## STEP 4: Allocate to health focus areas 
-## Thanks to Casey and Elizabeth for the original code 
-## (J:\Project\IRH\DAH\RESEARCH\INTEGRATED DATABASES\HEALTH FOCUS AREAS\FGH_2014_ALLOCATING_HFAS.do)
-#####################################################################################################
+######################################################################################
+## STEP 4: Allocate to health focus areas                                           ## 
+######################################################################################
 ## data prep for keyword search on the detailed grant description, activity description, and grant type description
 keyword_prep <- string_clean(dataset = foundations_prep, col_to_clean = 'description')
 keyword_prep <- string_clean(dataset = foundations_prep, col_to_clean = 'type_tran')
