@@ -55,26 +55,8 @@ health_grants <- setDT(grants)[primary_code == 'E']
 ## Often the country_tran variable will list two or more countries, so we will      ##
 ## want to split the grant amount evenly between them)                              ##
 ######################################################################################
-## TODO: @Ian -- ADD FUNCTION FOR GRANT SPLITTING
-## clean recipient country list
-health_grants[, country_tran := ifelse((is.na(country_tran)&length(location)!=2), location, country_tran)]
-
-## create separate column for each recipient (some grants have up to 10 recipients listed)
-health_grants[, n_recip := count.fields(textConnection(country_tran), sep = '; ')]
-country_cols <- rep(paste0('country_tran_', 1:max(health_grants$n_recip, na.rm = T)))
-health_grants_wide <- health_grants[, c(country_cols) := tstrsplit(country_tran, ';', fixed = TRUE)]
-
-## transform data long
-health_grants_wide$recipient <- health_grants_wide$country_tran
-health_grants_long <- melt(health_grants_wide, measure.vars = country_cols, value.name = 'recipient_country')
-health_grants_long <- health_grants_long[!(is.na(recipient_country) & !is.na(recipient))]
-
-## cumulative and total counts by grant
-health_grants_long$n=ave(1:length(health_grants_long$grant_key), health_grants_long$grant_key, FUN = seq_along)
-health_grants_long$N=ave(1:length(health_grants_long$grant_key), health_grants_long$grant_key, FUN = length)
-
-## split grant amount evenly among recipients
-health_grants_long[, amount_split := amount/N]
+## split grants among countries
+health_grants_long <- grant_splitting(health_grants, country_col = country_tran, dah_col = amount_split, separator = '; ')
 
 ## data prep for merging ISO codes
 health_grants_long[, country_lc := trimws(recipient)]
@@ -213,5 +195,25 @@ keyword_prep <- string_clean(dataset = foundations_prep, col_to_clean = 'descrip
 keyword_prep <- string_clean(dataset = foundations_prep, col_to_clean = 'type_tran')
 keyword_prep <- string_clean(dataset = foundations_prep, col_to_clean = 'activity_tran')
 keyword_prep <- string_clean(dataset = foundations_prep, col_to_clean = 'pop_grp_tran')
+#----------------------------# ####
 
-## TODO: @Ian -- INTEGRATE FGH KEYWORD SEARCH FUNCTION (lines 314+)
+save_dataset(foundations_prep, 'pre_kws_1992_2002', 'US_FOUNDS', 'stage1', write_dta = T)
+
+cat('\n\n')
+cat(green(' #######################\n'))
+cat(green(' #### WB LAUNCH KWS ####\n'))
+cat(green(' #######################\n\n'))
+
+cat('  Create keyword search config\n')
+#----# Create keyword search config #----# ####
+create_Health_config(data_path = get_path('US_FOUNDS', 'stage1'),
+                     channel_name = 'WB',
+                     varlist = c('description', 'type_tran', 'activity_tran', 'pop_grp_tran'),
+                     language = 'english',
+                     function_to_run = 1)
+#----------------------------------------# ####
+
+cat('  Launch keyword search\n')
+#----# Launch keyword search #----# ####
+launch_Health_ADO(channel_name = 'US_FOUNDS')
+#---------------------------------# ####
