@@ -1,12 +1,10 @@
-################################################################################################################
-## Author: Casey Graves                                                                                       ##
-## Translated by: Megan Knight                                                                                ##
-## Date: 9/12/2014                                                                                            ##
-## Purpose: Estimating US Foundation DAH using new grant-level data from the Foundation Center between 2013   ##
-## and 2015.                                                                                                  ## 
-## Please Note that this script feeds into:                                                                   ##
-## 'J:\Project\IRH\DAH\RESEARCH\CHANNELS\6_FOUNDATIONS\2_US_FOUNDATIONS\CODE\1_US_FOUND_PD_CREATE_FGH2014.do' ##
-################################################################################################################
+######################################################################################
+## Author: Casey Graves                                                             ##
+## Translated by: Megan Knight                                                      ##
+## Date: 9/12/2014                                                                  ##
+## Purpose: Estimating US Foundation DAH using new grant-level data from the        ##
+## Foundation Center between 2013 and 2015.                                         ##
+######################################################################################
 ## clean work environment
 rm(list = ls())
 
@@ -23,12 +21,12 @@ if (Sys.info()['sysname'] == 'Linux') {
 pacman::p_load(openxlsx, data.table, stringr, tidyr, readstata13)
 
 ## source functions 
-source(file.path(h, "repos/hms520_final/string_cleaning_function.R"))
+source(file.path(h, 'repos/hms520_final/string_cleaning_function.R'))
 
 ## paramaters for FGH report year
 report_yr <- 2020 ## FGH report year
 abrv_yr <- 20 ## abbreviated FGH report year
-crs_mmyy = "1020"	## MMYY of current CRS data
+crs_mmyy = '1020'	## MMYY of current CRS data
 
 ## define directories 
 root <- file.path(j, 'Project/IRH/DAH/RESEARCH')
@@ -37,11 +35,12 @@ int <- file.path(root, 'CHANNELS/6_FOUNDATIONS/2_US_FOUNDATIONS/DATA/INT')
 fin <- file.path(root, 'CHANNELS/6_FOUNDATIONS/2_US_FOUNDATIONS/DATA/FIN')
 CRS <- file.path(root, paste0('CHANNELS/1_BILATERALS_EC/1_CRS/DATA/FIN/CRS_', crs_mmyy))				
 codes <- file.path(root, 'INTEGRATED DATABASES/COUNTRY FEATURES')
-HFA	<- file.path(root, "INTEGRATED DATABASES/HEALTH FOCUS AREAS")
+HFA	<- file.path(root, 'INTEGRATED DATABASES/HEALTH FOCUS AREAS')
 
 ######################################################################################
-## STEP 1: Import raw grant-level data from the Foundation Center -- new            ##
-## classification as of FGH 2016)                                                   ##
+## STEP 1: Import raw grant-level data from the Foundation Center                   ##
+######################################################################################
+## New classification as of FGH 2016                                                ##
 ######################################################################################
 ## read raw data 
 grants_2013 <- setDT(read.xlsx(file.path(raw, 'FGH_2017/International_Grants_2013.xlsx')))
@@ -49,22 +48,24 @@ grants_2014 <- setDT(read.xlsx(file.path(raw, 'FGH_2017/International_Grants_201
 grants_2015 <- setDT(read.xlsx(file.path(raw, 'FGH_2017/International_2015.xlsx')))
 grants_2016 <- fread(file.path(raw, 'FGH_2018/FC_Output_2016.csv'))
 grants_2017 <- setDT(read.xlsx(file.path(raw, 'FGH_2019/FC_Output_2017.xlsx')))
-grants_2018 <- setDT(read.xlsx(file.path(raw, "FGH_2020/FC_Output_2018_revised.xlsx")))
+grants_2018 <- setDT(read.xlsx(file.path(raw, 'FGH_2020/FC_Output_2018_revised.xlsx')))
 
 ## prep raw data for merge 
+setnames(grants_2014, old = c('msa_code', 'msa_name'), new = c('recip_msa_code', 'recip_msa_name'))
+
 grants_2016 <- grants_2016[, amount := gsub(',', '', grants_2016$amount)]
 grants_2016$amount <- as.numeric(grants_2016$amount)
 
-grants_2018 <- grants_2018[, recip_country_tran := ifelse(recip_country_tran=="United States", "", recip_country_tran)]
+grants_2018 <- grants_2018[, recip_country_tran := ifelse(recip_country_tran=='United States', '', recip_country_tran)]
 
 ## append raw data together 
 grants <- rbind(grants_2013, grants_2014, grants_2015, grants_2016, grants_2017, grants_2018, fill=T)
 
 ## keep only health projects or health recipients
-health_grants <- grants[activity_override %like% "SE" | recip_subject_code %like% "SE"]
+health_grants <- grants[activity_override %like% 'SE' | recip_subject_code %like% 'SE']
 
 ## drop projects that are allied health	(Water access, sanitation and hygiene; Sanitation; Environmental health; Clean water supply; Bioethics; Art and music therapy)
-allied_projects <- c("SE080200", "SE030100", "SE140100", "SE130701", "SE130200", "SE130702", "SE130700")
+allied_projects <- c('SE080200', 'SE030100', 'SE140100', 'SE130701', 'SE130200', 'SE130702', 'SE130700')
 health_grants <- health_grants[!(activity_override %in% allied_projects)]
 
 ######################################################################################
@@ -74,10 +75,8 @@ health_grants <- health_grants[!(activity_override %in% allied_projects)]
 ## to split the grant amount evenly between them                                    ##
 ######################################################################################
 ## clean recipient data 
-health_grants[, intl_countries_tran := ifelse(intl_countries_tran == '', NA, intl_countries_tran)]
-health_grants[, intl_geotree_tran := ifelse(intl_geotree_tran == '', NA, intl_geotree_tran)]
-health_grants[, recip_country_tran := ifelse(recip_country_tran == '', NA, recip_country_tran)]
-
+cols <- c('intl_countries_tran', 'intl_geotree_tran', 'recip_country_tran')
+health_grants[, c(cols) := lapply(.SD, function(x) ifelse(grepl('^$|^ $', x, useBytes = T)==T, NA, x)), .SDcols = cols] 
 health_grants[, countryname := intl_countries_tran]
 
 ## subset for only US agencies that recieved grants for international work
@@ -91,10 +90,10 @@ health_grants_long <- grant_splitting(health_grants, country_col = countryname, 
 health_grants_long[, countryname := trimws(countryname)]
 health_grants_long[, countryname := ifelse(countryname == 'Congo, Democratic Republic of the', 'Congo, Democratic Republic of', 
                                     ifelse(countryname == 'Gambia, Republic of The', 'Gambia, The',
-                                    ifelse(countryname %in% grepl("West Bank/Gaza", health_grants_long$countryname, useBytes = T), 'West Bank and Gaza', 
-                                    ifelse(countryname == 'Delhi', "India", 
-                                    ifelse(countryname == 'Kalimantan', "Indonesia", 
-                                    ifelse(countryname == 'Rungwe', "Tanzania", countryname))))))]
+                                    ifelse(countryname %in% grepl('West Bank/Gaza', health_grants_long$countryname, useBytes = T), 'West Bank and Gaza', 
+                                    ifelse(countryname == 'Delhi', 'India', 
+                                    ifelse(countryname == 'Kalimantan', 'Indonesia', 
+                                    ifelse(countryname == 'Rungwe', 'Tanzania', countryname))))))]
 health_grants_long$country_lc <- health_grants_long$countryname
 
 ## read in ISO codes
@@ -108,27 +107,27 @@ setnames(health_grants_label1, old = c('iso3', 'yr_issued'),  new = c('ISO3_RC',
 health_grants_label2 <- health_grants_label1[, ISO3_RC := ifelse(country_lc == 'Africa', 'QMA',
                                                           ifelse(country_lc == 'Asia', 'QRA',
                                                           ifelse(country_lc == 'Caribbean', 'QNB',       
-                                                          ifelse(country_lc %in% c("Southern Africa", "Central Africa" , "Sub-Saharan Africa", "Western Africa", "Eastern Africa", "Horn of Africa", "Africa-Great Lakes Region", "Sahel"), 'QME',
+                                                          ifelse(country_lc %in% c('Southern Africa', 'Central Africa' , 'Sub-Saharan Africa', 'Western Africa', 'Eastern Africa', 'Horn of Africa', 'Africa-Great Lakes Region', 'Sahel'), 'QME',
                                                           ifelse(country_lc %in% c('Central America', 'North America'), 'QNC',
                                                           ifelse(country_lc == 'Central Asia', 'QRS',
-                                                          ifelse(country_lc %in% c("Eastern Europe", "Europe", "Western Europe", "Central Europe", "Moravia"),'QSA',  
-                                                          ifelse(country_lc %in% c("Global Programs", "Global programs", "World"),'WLD', 
+                                                          ifelse(country_lc %in% c('Eastern Europe', 'Europe', 'Western Europe', 'Central Europe', 'Moravia'),'QSA',  
+                                                          ifelse(country_lc %in% c('Global Programs', 'Global programs', 'World'),'WLD', 
                                                           ifelse(country_lc %in% c('Latin America', 'South America'),'QNE',
                                                           ifelse(country_lc %in% c('Mediterranean Basin', 'Northeast Africa', 'Northern Africa'),'QMD',
-                                                          ifelse(country_lc %in% c("Oceania", "Pacific Ocean"),'QTA',
+                                                          ifelse(country_lc %in% c('Oceania', 'Pacific Ocean'),'QTA',
                                                           ifelse(country_lc %in% c('Pacific Rim', 'Arctic Region', 'Developing Countries', 'Developing countries'),'QZA',  
-                                                          ifelse(country_lc %in% c("Southeast Asia", "Southeastern Asia", "Mekong River and Basin", "Eastern Asia"),'QRA', 
+                                                          ifelse(country_lc %in% c('Southeast Asia', 'Southeastern Asia', 'Mekong River and Basin', 'Eastern Asia'),'QRA', 
                                                           ifelse(country_lc %in% c('Southern Asia', 'Indian Subcontinent & Afghanistan'),'QRC', 
                                                           ifelse(country_lc == 'Middle East','QRE', 
                                                           ifelse(country_lc == 'Zaire','COD', 
                                                           ifelse(country_lc == 'Northern Ireland','GRB', 
                                                           ifelse(country_lc == 'East Jerusalem','PSE',       
                                                           ifelse(country_lc == 'West Bank/Gaza (Palestinian Territories)','PSE', 
-                                                          ifelse(country_lc %in% c("Kalimantan", "Sulawesi", "Java", "Bali", "Nusa Tenggara"),'IDN', 
+                                                          ifelse(country_lc %in% c('Kalimantan', 'Sulawesi', 'Java', 'Bali', 'Nusa Tenggara'),'IDN', 
                                                           ifelse(country_lc == 'Greater Antilles','QNB', 
                                                           ifelse(country_lc == 'Rungwe','TZA', 
                                                           ifelse(country_lc == 'Upper Egypt','EGY',
-                                                          ifelse(country_lc %in% c("Urban", "Great Plains of North America", "Northeastern"),'USA',
+                                                          ifelse(country_lc %in% c('Urban', 'Great Plains of North America', 'Northeastern'),'USA',
                                                           ifelse(country_lc == 'Patna','IND',
                                                           ifelse(country_lc == 'Slezsko','CZE',
                                                           ifelse(country_lc == 'Western China','CHN', ISO3_RC)))))))))))))))))))))))))))]
@@ -140,16 +139,15 @@ income_groups <- setDT(read.dta13(file.path(codes, paste0('wb_historical_incgrps
 health_grants_label2 <- merge(health_grants_label2, income_groups, by = c('ISO3_RC', 'YEAR'), all.x = T)
 
 ######################################################################################
-## STEP 3: Tagging transfers from foundations to channels we already track          ##
-## (UN Agencies and NGOs)                                                           ##
+## STEP 3: Tagging transfers from foundations to channels we already track -- i.e.  ##
+## UN Agencies and NGOs                                                             ##
 ######################################################################################
 ## drop BMFG because they are tracked separately
 health_grants_sub <- health_grants_label2[legacy_gm_key != 'GATE023']
 
-
 ## pull foundations to tag transfer
 grant_names <- unique(health_grants_sub$recip_name)
-foundation_names <- grant_names[grant_names %like% 'Foundation']
+foundation_names <- as.data.table(grant_names[grant_names %like% 'Foundation'])
 
 ## tagging transfers to other foundations
 health_grants_sub$ELIM_CH = 0

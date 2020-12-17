@@ -1,12 +1,10 @@
-################################################################################################################
-## Author: Casey Graves                                                                                       ##
-## Translated by: Megan Knight                                                                                ##
-## Date: 9/12/2014                                                                                            ##
-## Purpose: Estimating US Foundation DAH using new grant-level data from the Foundation Center between 1992   ## 
-## and 2002.                                                                                                  ##
-## Please Note that this script feeds into:                                                                   ##
-## 'J:\Project\IRH\DAH\RESEARCH\CHANNELS\6_FOUNDATIONS\2_US_FOUNDATIONS\CODE\1_US_FOUND_PD_CREATE_FGH2014.do' ##
-################################################################################################################
+######################################################################################
+## Author: Casey Graves                                                             ##
+## Translated by: Megan Knight                                                      ##
+## Date: 9/12/2014                                                                  ##
+## Purpose: Estimating US Foundation DAH using new grant-level data from the        ##
+## Foundation Center between 1992 and 2002.                                         ##
+######################################################################################
 ## clean work environment
 rm(list = ls())
 
@@ -23,7 +21,7 @@ if (Sys.info()['sysname'] == 'Linux') {
 pacman::p_load(openxlsx, data.table, stringr, tidyr, readstata13)
 
 ## source functions 
-source(file.path(h, "repos/hms520_final/string_cleaning_function.R"))
+source(file.path(h, 'repos/hms520_final/string_cleaning_function.R'))
 
 ## define directories 
 root <- file.path(j, 'Project/IRH/DAH/RESEARCH')
