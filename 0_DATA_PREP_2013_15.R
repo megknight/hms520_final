@@ -74,6 +74,7 @@ health_grants <- health_grants[!(activity_override %in% allied_projects)]
 ## Often the country_tran variable will list two or more countries, so we will want ##
 ## to split the grant amount evenly between them                                    ##
 ######################################################################################
+## TODO: @Ian -- ADD FUNCTION FOR GRANT SPLITTING
 ## clean recipient data 
 cols <- c('intl_countries_tran', 'intl_geotree_tran', 'recip_country_tran')
 health_grants[, c(cols) := lapply(.SD, function(x) ifelse(grepl('^$|^ $', x, useBytes = T)==T, NA, x)), .SDcols = cols] 

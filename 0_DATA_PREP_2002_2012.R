@@ -233,4 +233,7 @@ launch_Health_ADO(channel_name = 'US_FOUNDS')
 ## STEP 4: Allocate to health focus areas                                           ##
 ######################################################################################
 ## TODO: @Ian -- INTEGRATE FGH KEYWORD SEARCH FUNCTION (lines 281+). ALSO DOUBLE CHECK -- THEY DON'T PREP THE KEYWORDS LIKE THE LAST SCRIPT 
+<<<<<<< HEAD:0_DATA_PREP_2002_2012.R
+>>>>>>> 0b5bdba738255d5f661371e336ce15e17eecd50b:0_US_foundations_2002_2012.R
+=======
 >>>>>>> 0b5bdba738255d5f661371e336ce15e17eecd50b:0_US_foundations_2002_2012.R
