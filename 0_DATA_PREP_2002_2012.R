@@ -68,24 +68,8 @@ health_grants[, countryname := grant_intl_area_served_tran]
 ## subset for only US agencies that recieved grants for international work
 health_grants[, countryname := ifelse(grant_intl_area_served_tran=="", recip_country_tran, countryname)]
 
-## TODO: @Ian -- UPDATE WITH FUNCTION FOR GRANT SPLITTING
-## create separate column for each recipient (some grants have up to 10 recipients listed)
-cols <- max(lengths(gregexpr(';', health_grants$countryname)) + 1)
-health_grants_wide <- separate(health_grants, col = 'countryname', sep = ';', into = paste0('countryname_',seq_along(1:cols)), remove = F)
-
-## transform data long
-health_grants_wide$recipient <- health_grants_wide$countryname
-health_grants_long <- melt(health_grants_wide, measure.vars = paste0('countryname_',seq_along(1:cols)), value.name = 'recipient_country')
-health_grants_long[, c('recipient_country', 'recipient') := list(ifelse(recipient_country == '', NA, recipient_country), 
-                                                                 ifelse(recipient == '', NA, recipient))]
-health_grants_long <- health_grants_long[!(is.na(recipient_country) & !is.na(recipient))]
-
-## cumulative and total counts by grant
-health_grants_long$n=ave(1:length(health_grants_long$grant_key), health_grants_long$grant_key, FUN = seq_along)
-health_grants_long$N=ave(1:length(health_grants_long$grant_key), health_grants_long$grant_key, FUN = length)
-
-## split grant amount evenly among recipients
-health_grants_long[, amount_split := amount/N]
+## split grants among countries
+health_grants_long <- grant_splitting(health_grants, country_col = countryname, dah_col = amount_split, separator = '; ')
 
 ## data prep for merging ISO codes
 health_grants_long[, countryname := trimws(countryname)]
@@ -221,9 +205,25 @@ foundations_name_flag <- foundations_track_flag[, c('ELIM_CH', 'RECIPIENT_AGENCY
 
 ## drop high income countries
 foundations_prep <- foundations_name_flag[is.na(INC_GROUP) | INC_GROUP != 'H']
+#----------------------------# ####
 
-######################################################################################
-## STEP 4: Allocate to health focus areas                                           ##
-######################################################################################
-## TODO: @Ian -- INTEGRATE FGH KEYWORD SEARCH FUNCTION (lines 281+). ALSO DOUBLE CHECK -- THEY DON'T PREP THE KEYWORDS LIKE THE LAST SCRIPT 
+save_dataset(foundations_prep, 'pre_kws_2002_2012', 'US_FOUNDS', 'stage1', write_dta = T)
 
+cat('\n\n')
+cat(green(' #######################\n'))
+cat(green(' #### WB LAUNCH KWS ####\n'))
+cat(green(' #######################\n\n'))
+
+cat('  Create keyword search config\n')
+#----# Create keyword search config #----# ####
+create_Health_config(data_path = get_path('US_FOUNDS', 'stage1'),
+                     channel_name = 'WB',
+                     varlist = c('description', 'type_tran', 'activity_tran', 'pop_grp_tran'),
+                     language = 'english',
+                     function_to_run = 1)
+#----------------------------------------# ####
+
+cat('  Launch keyword search\n')
+#----# Launch keyword search #----# ####
+launch_Health_ADO(channel_name = 'US_FOUNDS')
+#---------------------------------# ####
